@@ -1,0 +1,546 @@
+package com.trashsailors.controller;
+
+import com.trashsailors.model.*;
+import com.trashsailors.view.SoundManager;
+import javafx.scene.input.KeyCode;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+
+public class GameEngine {
+    private final double mapWidth = 6000;
+    private final double mapHeight = 4200;
+
+    private Boat boat;
+    private Crew crew;
+    private SafeZone safeZone;
+
+    private List<Building> buildings = new ArrayList<>();
+    private List<Survivor> survivors = new ArrayList<>();
+    private List<Obstacle> obstacles = new ArrayList<>();
+    private List<Creature> creatures = new ArrayList<>();
+    private List<UsefulObject> usefulObjects = new ArrayList<>();
+    private List<FloatingText> floatingTexts = new ArrayList<>();
+
+    private RopeAnimation activeRopeAnimation = new RopeAnimation();
+    private Survivor aimedSurvivor = null;
+
+    private String difficultyLevel = "MEDIUM"; // "EASY" (600s), "MEDIUM" (300s), "HARD" (120s)
+    private double timeRemaining = 300.0;
+    private double lowTimerThreshold = 60.0;
+    private boolean lowTimerActive = false;
+
+    private double cameraZoom = 1.0;
+    private int totalSurvivorsInLevel = 0;
+    private int totalDelivered = 0;
+    private int score = 0;
+
+    private boolean gameOver = false;
+    private boolean gameWon = false;
+    private String statusMessage = "Navigate flooded IUT avenues! Zoom: Q/E or Scroll";
+
+    // ========== INFINITE RANDOM SURVIVOR GENERATION ==========
+    private final Random random = new Random();
+    private double survivorSpawnTimer = 0.0;
+    private static final double SPAWN_INTERVAL = 30.0;
+    private int waveNumber = 0;
+
+    public GameEngine() {
+        reset();
+    }
+
+    public void setDifficulty(String level) {
+        this.difficultyLevel = level;
+        reset();
+    }
+
+    public void reset() {
+        if ("EASY".equalsIgnoreCase(difficultyLevel)) {
+            timeRemaining = 600.0;
+            lowTimerThreshold = 120.0;
+        } else if ("HARD".equalsIgnoreCase(difficultyLevel)) {
+            timeRemaining = 120.0;
+            lowTimerThreshold = 35.0;
+        } else {
+            timeRemaining = 300.0;
+            lowTimerThreshold = 60.0;
+        }
+
+        setupIUTCampusMapMassive();
+
+        double spawnX = 650;
+        double spawnY = 2200;
+        boat = new Boat(spawnX, spawnY);
+        crew = new Crew();
+
+        ensureNoBoatOverlap(spawnX, spawnY);
+
+        safeZone = new SafeZone(2900, 1400);
+
+        survivors.clear();
+        obstacles.clear();
+        creatures.clear();
+        usefulObjects.clear();
+        floatingTexts.clear();
+        aimedSurvivor = null;
+
+        cameraZoom = 1.0;
+        lowTimerActive = false;
+        totalDelivered = 0;
+        score = 0;
+        gameOver = false;
+        gameWon = false;
+
+        // Reset infinite spawn system
+        survivorSpawnTimer = 0.0;
+        waveNumber = 0;
+        totalSurvivorsInLevel = 0;
+
+        // Initial small wave so map is not empty
+        spawnRandomSurvivorWave(5, 12);
+
+        obstacles.add(new Obstacle(1400, 700, 55, "SUBMERGED_CAR"));
+        obstacles.add(new Obstacle(2900, 550, 60, "ROAD_BARRIER"));
+        obstacles.add(new Obstacle(3600, 1200, 58, "FALLEN_TREE"));
+        obstacles.add(new Obstacle(2100, 1800, 55, "FLOODED_DUMPSTER"));
+        obstacles.add(new Obstacle(4200, 2800, 60, "SUBMERGED_CAR"));
+
+        creatures.add(new Creature(3200, 3100, "Central Pond Monster"));
+        creatures.add(new Creature(2100, 2700, "Auditorium Alley Croc"));
+
+        usefulObjects.add(new UsefulObject(1400, 1900, "TURBO_FUEL", 150));
+        usefulObjects.add(new UsefulObject(3300, 1600, "SUPPLY_CHEST", 300));
+        usefulObjects.add(new UsefulObject(4600, 600, "RECYCLABLE_TRASH", 100));
+        usefulObjects.add(new UsefulObject(3800, 3500, "TURBO_FUEL", 150));
+
+        statusMessage = "Level: " + difficultyLevel + " | Survivors appear every 30s! | WASD + Arrows + Space/R";
+    }
+
+    private void ensureNoBoatOverlap(double x, double y) {
+        for (Building b : buildings) {
+            if (!"FIELD".equals(b.getType()) && b.intersects(x, y, boat.getWidth() + 60, boat.getHeight() + 60)) {
+                boat.setX(x + 400);
+                boat.setY(y + 400);
+                break;
+            }
+        }
+    }
+
+    private Building findBuildingByName(String name) {
+        for (Building b : buildings) {
+            if (name.equalsIgnoreCase(b.getNameLabel())) return b;
+        }
+        return null;
+    }
+
+    private void setupIUTCampusMapMassive() {
+        buildings.clear();
+        String iutRed = "#dc2626";
+
+        buildings.add(new Building(150, 200, 220, 600, "ACADEMIC", "#991b1b", "Medical Centre & Laundry"));
+        buildings.add(new Building(950, 200, 950, 200, "ACADEMIC", iutRed, "Academic Building-3"));
+        buildings.add(new Building(950, 500, 950, 220, "WORKSHOP", iutRed, "North Work Shop"));
+        buildings.add(new Building(950, 850, 950, 220, "WORKSHOP", iutRed, "Middle Work Shop"));
+        buildings.add(new Building(950, 1200, 950, 220, "WORKSHOP", iutRed, "South Work Shop"));
+
+        buildings.add(new Building(950, 1700, 950, 1250, "PARK_TREES", "#15803d", "OIC Tree Park"));
+        buildings.add(new Building(400, 2000, 380, 280, "ACADEMIC", "#7f1d1d", "Residential Building 1"));
+        buildings.add(new Building(400, 2500, 380, 280, "ACADEMIC", "#7f1d1d", "Residential Building 2"));
+        buildings.add(new Building(300, 3200, 750, 220, "HALL", iutRed, "Female Hall of Residence"));
+        buildings.add(new Building(400, 3550, 650, 220, "ACADEMIC", iutRed, "Female Common Facilities"));
+
+        buildings.add(new Building(2250, 240, 700, 240, "ACADEMIC", iutRed, "Academic Building-2"));
+        buildings.add(new Building(2250, 850, 700, 220, "ACADEMIC", iutRed, "Academic Building-1"));
+
+        buildings.add(new Building(3200, 240, 480, 180, "HALL", iutRed, "North Hall of Residence"));
+        buildings.add(new Building(3800, 240, 480, 180, "HALL", iutRed, "North Hall of Residence"));
+        buildings.add(new Building(4400, 240, 480, 180, "HALL", iutRed, "North Hall of Residence"));
+
+        buildings.add(new Building(3200, 850, 480, 180, "HALL", iutRed, "South Hall of Residence"));
+        buildings.add(new Building(3800, 850, 480, 180, "HALL", iutRed, "South Hall of Residence"));
+        buildings.add(new Building(4400, 850, 480, 180, "HALL", iutRed, "South Hall of Residence"));
+
+        buildings.add(new Building(5050, 200, 250, 1000, "HALL", iutRed, "North Cafeteria & Common"));
+
+        buildings.add(new Building(2250, 1450, 600, 300, "ACADEMIC", iutRed, "Administrative Building"));
+        buildings.add(new Building(3050, 1450, 600, 480, "ACADEMIC", iutRed, "Cafeteria / Library"));
+        buildings.add(new Building(1900, 1950, 650, 500, "ACADEMIC", iutRed, "Auditorium"));
+        buildings.add(new Building(2700, 2150, 450, 450, "MOSQUE", iutRed, "IUT Mosque"));
+
+        buildings.add(new Building(3900, 1450, 1000, 350, "ACADEMIC", iutRed, "Students Centre & Gymnasium"));
+        buildings.add(new Building(3900, 1950, 1100, 1500, "FIELD", "#166534", "IUT Sports Field"));
+    }
+
+    // =========================================================
+    //  INFINITE RANDOM SURVIVOR WAVE GENERATOR
+    // =========================================================
+    private void spawnRandomSurvivorWave(int minCount, int maxCount) {
+        int count = minCount + random.nextInt(maxCount - minCount + 1);
+        waveNumber++;
+
+        String[] namePool = {
+            "Alex", "Sam", "Morgan", "Taylor", "Jordan", "Riley", "Casey",
+            "Avery", "Quinn", "Blake", "Jamie", "Drew", "Cameron", "Reese",
+            "Skyler", "Parker", "Hayden", "Finley", "Rowan", "Sage",
+            "Student", "Staff", "Professor", "Lab Assistant", "Visitor"
+        };
+
+        int spawned = 0;
+        int attempts = 0;
+        final int maxAttempts = count * 30;
+
+        while (spawned < count && attempts < maxAttempts) {
+            attempts++;
+
+            double x = 80 + random.nextDouble() * (mapWidth - 160);
+            double y = 80 + random.nextDouble() * (mapHeight - 160);
+
+            boolean insideBuilding = false;
+            Building nearestBuilding = null;
+            double nearestDist = Double.MAX_VALUE;
+
+            for (Building b : buildings) {
+                if (!"FIELD".equals(b.getType()) &&
+                    x >= b.getX() && x <= b.getX() + b.getWidth() &&
+                    y >= b.getY() && y <= b.getY() + b.getHeight()) {
+                    insideBuilding = true;
+                    break;
+                }
+                double cx = b.getX() + b.getWidth() / 2;
+                double cy = b.getY() + b.getHeight() / 2;
+                double d = Math.hypot(x - cx, y - cy);
+                if (d < nearestDist) {
+                    nearestDist = d;
+                    nearestBuilding = b;
+                }
+            }
+            if (insideBuilding) continue;
+
+            if (Math.hypot(x - safeZone.getX(), y - safeZone.getY()) < safeZone.getRadius() + 80) {
+                continue;
+            }
+
+            if (boat != null && Math.hypot(x - boat.getX(), y - boat.getY()) < 120) {
+                continue;
+            }
+
+            boolean tooCloseToOther = false;
+            for (Survivor s : survivors) {
+                if (!s.isRescued() && Math.hypot(x - s.getX(), y - s.getY()) < 70) {
+                    tooCloseToOther = true;
+                    break;
+                }
+            }
+            if (tooCloseToOther) continue;
+
+            String name = namePool[random.nextInt(namePool.length)] + " #" + (totalSurvivorsInLevel + spawned + 1);
+            Survivor newSurvivor = new Survivor(x, y, name, nearestBuilding);
+            survivors.add(newSurvivor);
+            spawned++;
+        }
+
+        totalSurvivorsInLevel += spawned;
+
+        if (spawned > 0) {
+            addFloatingText("WAVE " + waveNumber + ": +" + spawned + " SURVIVORS!",
+                    boat.getX(), boat.getY() - 90, "#facc15");
+            statusMessage = "Wave " + waveNumber + " arrived! +" + spawned + " people. Next wave in 30s.";
+            SoundManager.playCollectSound();
+        }
+    }
+
+    public void update(InputHandler input, double deltaSeconds) {
+        if (gameOver || gameWon) return;
+
+        // ========== INFINITE SURVIVOR SPAWN TIMER ==========
+        survivorSpawnTimer += deltaSeconds;
+        if (survivorSpawnTimer >= SPAWN_INTERVAL) {
+            survivorSpawnTimer = 0.0;
+            spawnRandomSurvivorWave(8, 28);
+        }
+
+        double scrollDelta = input.consumeScrollDeltaY();
+        if (scrollDelta > 0 || input.isKeyPressed(KeyCode.Q) || input.isKeyPressed(KeyCode.EQUALS)) {
+            cameraZoom = Math.min(1.8, cameraZoom + 0.02);
+        } else if (scrollDelta < 0 || input.isKeyPressed(KeyCode.E) || input.isKeyPressed(KeyCode.MINUS)) {
+            cameraZoom = Math.max(0.4, cameraZoom - 0.02);
+        }
+
+        timeRemaining -= deltaSeconds;
+        if (timeRemaining <= lowTimerThreshold && !lowTimerActive) {
+            lowTimerActive = true;
+            addFloatingText("WARNING! Survivors swimming towards boat!", boat.getX(), boat.getY() - 60, "#FF3366");
+        }
+
+        if (timeRemaining <= 0) {
+            timeRemaining = 0;
+            if (totalDelivered >= totalSurvivorsInLevel) {
+                gameWon = true;
+                SoundManager.playWinSound();
+            } else {
+                gameOver = true;
+                SoundManager.playGameOverSound();
+            }
+            return;
+        }
+
+        boolean forward = input.isKeyPressed(KeyCode.W);
+        boolean backward = input.isKeyPressed(KeyCode.S);
+        boolean turnLeft = input.isKeyPressed(KeyCode.A);
+        boolean turnRight = input.isKeyPressed(KeyCode.D);
+        boat.update(forward, backward, turnLeft, turnRight, mapWidth, mapHeight);
+
+        double bw = boat.getWidth();
+        double bh = boat.getHeight();
+        double bx = boat.getX();
+        double by = boat.getY();
+
+        for (Building b : buildings) {
+            if (!"FIELD".equals(b.getType()) && b.intersects(bx, by, bw, bh)) {
+                double overlapLeft = (bx + bw / 2.0) - b.getX();
+                double overlapRight = (b.getX() + b.getWidth()) - (bx - bw / 2.0);
+                double overlapTop = (by + bh / 2.0) - b.getY();
+                double overlapBottom = (b.getY() + b.getHeight()) - (by - bh / 2.0);
+
+                double minOverlap = Math.min(Math.min(overlapLeft, overlapRight), Math.min(overlapTop, overlapBottom));
+
+                if (minOverlap == overlapLeft) {
+                    boat.setX(b.getX() - bw / 2.0 - 0.5);
+                    if (boat.getVx() > 0) boat.setVx(0);
+                } else if (minOverlap == overlapRight) {
+                    boat.setX(b.getX() + b.getWidth() + bw / 2.0 + 0.5);
+                    if (boat.getVx() < 0) boat.setVx(0);
+                } else if (minOverlap == overlapTop) {
+                    boat.setY(b.getY() - bh / 2.0 - 0.5);
+                    if (boat.getVy() > 0) boat.setVy(0);
+                } else if (minOverlap == overlapBottom) {
+                    boat.setY(b.getY() + b.getHeight() + bh / 2.0 + 0.5);
+                    if (boat.getVy() < 0) boat.setVy(0);
+                }
+
+                bx = boat.getX();
+                by = boat.getY();
+            }
+        }
+
+        boolean cUp = input.isKeyPressed(KeyCode.UP);
+        boolean cDown = input.isKeyPressed(KeyCode.DOWN);
+        boolean cLeft = input.isKeyPressed(KeyCode.LEFT);
+        boolean cRight = input.isKeyPressed(KeyCode.RIGHT);
+        crew.update(cUp, cDown, cLeft, cRight);
+
+        updateAimedSurvivor();
+
+        if (activeRopeAnimation.isActive()) {
+            activeRopeAnimation.update(deltaSeconds);
+            if (!activeRopeAnimation.isActive() && activeRopeAnimation.getTargetSurvivor() != null) {
+                Survivor target = activeRopeAnimation.getTargetSurvivor();
+                if (!target.isRescued() && boat.canAddCargo()) {
+                    target.setRescued(true);
+                    boat.addCargo();
+                    score += 120;
+                    SoundManager.playRescueSound();
+                    addFloatingText("ROPE RESCUED " + target.getName() + "!", crew.getWorldX(boat), crew.getWorldY(boat) - 30, "#33CCFF");
+                    statusMessage = "Rescued survivor with rope lasso! Deliver to Helipad!";
+                }
+            }
+        }
+
+        for (Creature creature : creatures) {
+            creature.update(boat);
+            if (creature.isActive() && creature.getDangerLevel() > 0.8) {
+                timeRemaining = Math.max(0, timeRemaining - deltaSeconds * 1.5);
+            }
+        }
+
+        for (Survivor s : survivors) {
+            s.update(lowTimerActive, boat, buildings);
+        }
+
+        for (Obstacle o : obstacles) {
+            if (!o.isCleared()) {
+                double dx = boat.getX() - o.getX();
+                double dy = boat.getY() - o.getY();
+                double dist = Math.hypot(dx, dy);
+                double minDist = (boat.getWidth() / 2.0) + o.getRadius();
+                if (dist < minDist && dist > 0.001) {
+                    double pushOut = minDist - dist + 0.5;
+                    boat.setX(boat.getX() + (dx / dist) * pushOut);
+                    boat.setY(boat.getY() + (dy / dist) * pushOut);
+                }
+            }
+        }
+
+        if (input.consumeSpacePressed() || input.isKeyPressed(KeyCode.R)) {
+            handleCrewInteraction();
+        }
+
+        if (safeZone.isBoatInside(boat) && boat.getCargoCount() > 0) {
+            int count = boat.unloadCargo();
+            totalDelivered += count;
+            score += count * 250;
+            SoundManager.playDeliverySound();
+            addFloatingText("DELIVERED +" + count + " SURVIVOR(S)!", boat.getX(), boat.getY() - 70, "#00FF88");
+
+            if (totalDelivered >= totalSurvivorsInLevel) {
+                statusMessage = "All current survivors evacuated! Next wave incoming...";
+            }
+        }
+
+        Iterator<FloatingText> ftIter = floatingTexts.iterator();
+        while (ftIter.hasNext()) {
+            FloatingText ft = ftIter.next();
+            ft.update(deltaSeconds);
+            if (ft.isDead()) {
+                ftIter.remove();
+            }
+        }
+    }
+
+    private void updateAimedSurvivor() {
+        double crewWorldX = crew.getWorldX(boat);
+        double crewWorldY = crew.getWorldY(boat);
+        double closestDist = 450;
+        aimedSurvivor = null;
+
+        for (Survivor s : survivors) {
+            if (!s.isRescued()) {
+                double dist = Math.hypot(crewWorldX - s.getX(), crewWorldY - s.getY());
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    aimedSurvivor = s;
+                }
+            }
+        }
+    }
+
+    private void handleCrewInteraction() {
+        double crewWorldX = crew.getWorldX(boat);
+        double crewWorldY = crew.getWorldY(boat);
+        double radius = crew.getInteractionRadius();
+
+        if (aimedSurvivor != null && !aimedSurvivor.isRescued()) {
+            if (boat.canAddCargo()) {
+                activeRopeAnimation.start(crewWorldX, crewWorldY, aimedSurvivor);
+                SoundManager.playRopeThrowSound();
+                addFloatingText("ROPE THROWN!", crewWorldX, crewWorldY - 30, "#facc15");
+                statusMessage = "Rope lasso thrown to rescue survivor!";
+                return;
+            } else {
+                addFloatingText("CARGO FULL!", crewWorldX, crewWorldY - 30, "#FF4444");
+                statusMessage = "Cargo slots full! Deliver to Evacuation Helipad!";
+                return;
+            }
+        }
+
+        for (Obstacle o : obstacles) {
+            if (!o.isCleared()) {
+                double dist = Math.hypot(crewWorldX - o.getX(), crewWorldY - o.getY());
+                if (dist <= radius + o.getRadius()) {
+                    o.interact();
+                    score += 50;
+                    SoundManager.playObstacleClearedSound();
+                    addFloatingText("AVENUE CLEARED!", o.getX(), o.getY() - 30, "#FFCC00");
+                    statusMessage = "Cleared obstacle from flooded campus avenue!";
+                    return;
+                }
+            }
+        }
+
+        for (Creature c : creatures) {
+            if (c.isActive()) {
+                double dist = Math.hypot(crewWorldX - c.getX(), crewWorldY - c.getY());
+                if (dist <= radius + c.getRadius() + 30) {
+                    if (c.scareOff()) {
+                        score += 150;
+                        SoundManager.playCreatureScaredSound();
+                        addFloatingText("SCARED OFF " + c.getName().toUpperCase() + "!", c.getX(), c.getY() - 30, "#FF00FF");
+                        statusMessage = "Fended off campus pond monster!";
+                        return;
+                    }
+                }
+            }
+        }
+
+        for (UsefulObject u : usefulObjects) {
+            if (!u.isCollected()) {
+                double dist = Math.hypot(crewWorldX - u.getX(), crewWorldY - u.getY());
+                if (dist <= radius + 30) {
+                    u.collect();
+                    score += u.getPointValue();
+                    boat.applySpeedBoost(6.0);
+                    SoundManager.playCollectSound();
+                    addFloatingText("+$" + u.getPointValue() + " & TURBO BOOST!", u.getX(), u.getY() - 30, "#FFFF00");
+                    statusMessage = "Collected campus supply item! Turbo boost active!";
+                    return;
+                }
+            }
+        }
+    }
+
+    private void addFloatingText(String text, double x, double y, String color) {
+        floatingTexts.add(new FloatingText(text, x, y, color));
+    }
+
+    // Getters
+    public double getMapWidth() { return mapWidth; }
+    public double getMapHeight() { return mapHeight; }
+    public Boat getBoat() { return boat; }
+    public Crew getCrew() { return crew; }
+    public SafeZone getSafeZone() { return safeZone; }
+    public List<Building> getBuildings() { return buildings; }
+    public List<Survivor> getSurvivors() { return survivors; }
+    public List<Obstacle> getObstacles() { return obstacles; }
+    public List<Creature> getCreatures() { return creatures; }
+    public List<UsefulObject> getUsefulObjects() { return usefulObjects; }
+    public List<FloatingText> getFloatingTexts() { return floatingTexts; }
+    public RopeAnimation getActiveRopeAnimation() { return activeRopeAnimation; }
+    public Survivor getAimedSurvivor() { return aimedSurvivor; }
+    public String getDifficultyLevel() { return difficultyLevel; }
+    public double getCameraZoom() { return cameraZoom; }
+    public double getTimeRemaining() { return timeRemaining; }
+    public boolean isLowTimerActive() { return lowTimerActive; }
+    public int getTotalSurvivorsInLevel() { return totalSurvivorsInLevel; }
+    public int getTotalDelivered() { return totalDelivered; }
+    public int getScore() { return score; }
+    public boolean isGameOver() { return gameOver; }
+    public boolean isGameWon() { return gameWon; }
+    public String getStatusMessage() { return statusMessage; }
+
+    public double getNextWaveIn() {
+        return Math.max(0, SPAWN_INTERVAL - survivorSpawnTimer);
+    }
+
+    public int getWaveNumber() {
+        return waveNumber;
+    }
+
+    public static class FloatingText {
+        private String text;
+        private double x;
+        private double y;
+        private String color;
+        private double lifetime = 1.6;
+
+        public FloatingText(String text, double x, double y, String color) {
+            this.text = text;
+            this.x = x;
+            this.y = y;
+            this.color = color;
+        }
+
+        public void update(double dt) {
+            lifetime -= dt;
+            y -= dt * 25;
+        }
+
+        public boolean isDead() { return lifetime <= 0; }
+        public String getText() { return text; }
+        public double getX() { return x; }
+        public double getY() { return y; }
+        public String getColor() { return color; }
+        public double getOpacity() { return Math.max(0, lifetime / 1.6); }
+    }
+}

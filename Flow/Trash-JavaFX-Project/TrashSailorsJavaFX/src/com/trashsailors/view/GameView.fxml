@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<StackPane fx:id="rootPane" focusTraversable="true" style="-fx-background-color: #030712;" prefWidth="1100.0" prefHeight="700.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.trashsailors.controller.MainController">
+   <children>
+      <!-- Main Game Canvas -->
+      <Canvas fx:id="gameCanvas" width="1100.0" height="700.0" focusTraversable="true" />
+
+      <!-- Main Menu Overlay -->
+      <VBox fx:id="menuOverlay" alignment="CENTER" spacing="18.0" style="-fx-background-color: rgba(3, 7, 18, 0.95); -fx-padding: 30px;">
+         <children>
+            <Label text="🕌 TRASH SAILORS: FLOODED IUT CAMPUS" textFill="#dc2626">
+               <font>
+                  <Font name="Segoe UI Bold" size="36.0" />
+               </font>
+            </Label>
+            <Label text="Visual Programming Lab - Flooded IUT Campus 2-Player Co-Op" textFill="#94a3b8">
+               <font>
+                  <Font name="Segoe UI Bold" size="16.0" />
+               </font>
+            </Label>
+            <HBox alignment="CENTER" spacing="25.0" maxWidth="850.0">
+               <children>
+                  <!-- Player 1 Card -->
+                  <VBox prefWidth="380.0" spacing="8.0" style="-fx-background-color: rgba(30, 41, 59, 0.85); -fx-padding: 16px; -fx-background-radius: 16px; -fx-border-color: #facc15; -fx-border-radius: 16px; -fx-border-width: 2px;">
+                     <children>
+                        <Label text="🕹️ PLAYER 1 — PILOT" textFill="#facc15">
+                           <font>
+                              <Font name="Segoe UI Bold" size="17.0" />
+                           </font>
+                        </Label>
+                        <Label text="Keys: W, A, S, D&#10;Glide frictionlessly through open IUT avenues." textFill="#f8fafc" wrapText="true">
+                           <font>
+                              <Font name="Segoe UI" size="13.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+                  <!-- Player 2 Card -->
+                  <VBox prefWidth="380.0" spacing="8.0" style="-fx-background-color: rgba(30, 41, 59, 0.85); -fx-padding: 16px; -fx-background-radius: 16px; -fx-border-color: #ff0055; -fx-border-radius: 16px; -fx-border-width: 2px;">
+                     <children>
+                        <Label text="🧑‍🌾 PLAYER 2 — CREW" textFill="#ff0055">
+                           <font>
+                              <Font name="Segoe UI Bold" size="17.0" />
+                           </font>
+                        </Label>
+                        <Label text="Keys: ARROW KEYS + SPACE / [R]&#10;Aim &amp; Throw Rope to rescue survivors stuck in trees!" textFill="#f8fafc" wrapText="true">
+                           <font>
+                              <Font name="Segoe UI" size="13.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+               </children>
+            </HBox>
+
+            <!-- Difficulty Level Selection -->
+            <VBox alignment="CENTER" spacing="10.0">
+               <children>
+                  <Label text="🎯 SELECT RESCUE MISSION DIFFICULTY / TIME LIMIT:" textFill="#38bdf8">
+                     <font>
+                        <Font name="Segoe UI Bold" size="15.0" />
+                     </font>
+                  </Label>
+                  <HBox alignment="CENTER" spacing="16.0">
+                     <children>
+                        <Button focusTraversable="false" text="🟢 EASY (10 MINS)" onAction="#onSelectEasy" style="-fx-background-color: #16a34a; -fx-text-fill: #ffffff; -fx-padding: 12px 24px; -fx-background-radius: 20px; -fx-cursor: hand;">
+                           <font>
+                              <Font name="Segoe UI Bold" size="15.0" />
+                           </font>
+                        </Button>
+                        <Button focusTraversable="false" text="🟡 MEDIUM (5 MINS)" onAction="#onSelectMedium" style="-fx-background-color: #ca8a04; -fx-text-fill: #ffffff; -fx-padding: 12px 24px; -fx-background-radius: 20px; -fx-cursor: hand;">
+                           <font>
+                              <Font name="Segoe UI Bold" size="15.0" />
+                           </font>
+                        </Button>
+                        <Button focusTraversable="false" text="🔴 HARD (2 MINS)" onAction="#onSelectHard" style="-fx-background-color: #dc2626; -fx-text-fill: #ffffff; -fx-padding: 12px 24px; -fx-background-radius: 20px; -fx-cursor: hand;">
+                           <font>
+                              <Font name="Segoe UI Bold" size="15.0" />
+                           </font>
+                        </Button>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+
+            <Label text="🔍 MAP ZOOM: Use Mouse Scroll Wheel OR Keys [Q] / [E] to Zoom In &amp; Out!" textFill="#cbd5e1">
+               <font>
+                  <Font name="Segoe UI Bold" size="13.0" />
+               </font>
+            </Label>
+
+            <!-- Quit Button -->
+            <Button focusTraversable="false" text="❌ QUIT GAME" onAction="#onQuitGame" style="-fx-background-color: #334155; -fx-text-fill: #94a3b8; -fx-padding: 10px 28px; -fx-background-radius: 20px; -fx-cursor: hand;">
+               <font>
+                  <Font name="Segoe UI Bold" size="14.0" />
+               </font>
+            </Button>
+         </children>
+      </VBox>
+
+      <!-- Game Over Overlay -->
+      <VBox fx:id="gameOverOverlay" alignment="CENTER" spacing="20.0" style="-fx-background-color: rgba(15, 23, 42, 0.96); -fx-padding: 40px;" visible="false">
+         <children>
+            <Label text="⚓ IUT CAMPUS EVACUATION FAILED!" textFill="#ff0055">
+               <font>
+                  <Font name="Segoe UI Bold" size="34.0" />
+               </font>
+            </Label>
+            <Label text="You couldn't deliver all students &amp; staff to the Evacuation Helipad before time ran out." textFill="#cbd5e1">
+               <font>
+                  <Font name="Segoe UI" size="16.0" />
+               </font>
+            </Label>
+            <HBox alignment="CENTER" spacing="16.0">
+               <children>
+                  <Button focusTraversable="false" text="RETRY IUT RESCUE" onAction="#onStartGame" style="-fx-background-color: #ff0055; -fx-text-fill: #ffffff; -fx-padding: 14px 36px; -fx-background-radius: 30px; -fx-cursor: hand;">
+                     <font>
+                        <Font name="Segoe UI Bold" size="18.0" />
+                     </font>
+                  </Button>
+                  <Button focusTraversable="false" text="❌ QUIT GAME" onAction="#onQuitGame" style="-fx-background-color: #334155; -fx-text-fill: #ffffff; -fx-padding: 14px 30px; -fx-background-radius: 30px; -fx-cursor: hand;">
+                     <font>
+                        <Font name="Segoe UI Bold" size="16.0" />
+                     </font>
+                  </Button>
+               </children>
+            </HBox>
+         </children>
+      </VBox>
+
+      <!-- Victory Overlay -->
+      <VBox fx:id="victoryOverlay" alignment="CENTER" spacing="20.0" style="-fx-background-color: rgba(15, 23, 42, 0.96); -fx-padding: 40px;" visible="false">
+         <children>
+            <Label text="🏆 IUT EVACUATION SUCCESSFUL! ALL RESCUED!" textFill="#00ff88">
+               <font>
+                  <Font name="Segoe UI Bold" size="32.0" />
+               </font>
+            </Label>
+            <Label text="Outstanding co-op teamwork! All IUT students &amp; staff safely evacuated!" textFill="#cbd5e1">
+               <font>
+                  <Font name="Segoe UI" size="16.0" />
+               </font>
+            </Label>
+            <HBox alignment="CENTER" spacing="16.0">
+               <children>
+                  <Button focusTraversable="false" text="PLAY AGAIN" onAction="#onStartGame" style="-fx-background-color: #00ff88; -fx-text-fill: #020617; -fx-padding: 14px 36px; -fx-background-radius: 30px; -fx-cursor: hand;">
+                     <font>
+                        <Font name="Segoe UI Bold" size="18.0" />
+                     </font>
+                  </Button>
+                  <Button focusTraversable="false" text="❌ QUIT GAME" onAction="#onQuitGame" style="-fx-background-color: #334155; -fx-text-fill: #ffffff; -fx-padding: 14px 30px; -fx-background-radius: 30px; -fx-cursor: hand;">
+                     <font>
+                        <Font name="Segoe UI Bold" size="16.0" />
+                     </font>
+                  </Button>
+               </children>
+            </HBox>
+         </children>
+      </VBox>
+   </children>
+</StackPane>
