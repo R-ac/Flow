@@ -97,6 +97,11 @@
                   <Font name="Segoe UI Bold" size="13.0" />
                </font>
             </Label>
+            <Label text="🔁 VEHICLE WORKSHOP DEPOT: Press [V] / [TAB] to switch between 6×6 Rover ⇄ Rescue Boat!" textFill="#38bdf8">
+               <font>
+                  <Font name="Segoe UI Bold" size="13.0" />
+               </font>
+            </Label>
 
             <!-- Quit Button -->
             <Button focusTraversable="false" text="❌ QUIT GAME" onAction="#onQuitGame" style="-fx-background-color: #334155; -fx-text-fill: #94a3b8; -fx-padding: 10px 28px; -fx-background-radius: 20px; -fx-cursor: hand;">

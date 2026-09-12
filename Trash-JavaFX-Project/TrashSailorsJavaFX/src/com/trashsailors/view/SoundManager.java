@@ -72,4 +72,10 @@ public class SoundManager {
         playTone(220.00, 250, 0.6);
         playTone(150.00, 400, 0.7);
     }
+
+    public static void playWarningSound() {
+        playTone(220.00, 100, 0.5);
+        try { Thread.sleep(40); } catch (Exception ignored) {}
+        playTone(180.00, 140, 0.5);
+    }
 }

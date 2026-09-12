@@ -6,11 +6,24 @@ public class RopeAnimation {
     private double progress = 0.0;
     private boolean active = false;
     private Survivor targetSurvivor;
+    private SupplyBox targetSupplyBox;
 
     public void start(double startX, double startY, Survivor target) {
         this.startX = startX;
         this.startY = startY;
         this.targetSurvivor = target;
+        this.targetSupplyBox = null;
+        this.targetX = target.getX();
+        this.targetY = target.getY();
+        this.progress = 0.0;
+        this.active = true;
+    }
+
+    public void start(double startX, double startY, SupplyBox target) {
+        this.startX = startX;
+        this.startY = startY;
+        this.targetSupplyBox = target;
+        this.targetSurvivor = null;
         this.targetX = target.getX();
         this.targetY = target.getY();
         this.progress = 0.0;
@@ -33,4 +46,5 @@ public class RopeAnimation {
     public double getTargetY() { return targetY; }
     public double getProgress() { return progress; }
     public Survivor getTargetSurvivor() { return targetSurvivor; }
+    public SupplyBox getTargetSupplyBox() { return targetSupplyBox; }
 }
